@@ -1,0 +1,174 @@
+1. Напишите функцию CalculateAverages, принимающую вектор int "values" и возвращающую два вектора float "ariphmetic" и "geometric", которые заполняются на основании исходного вектора "values".
+
+Вектор "ariphmetic" заполняется средним арифметическим значением соседних элементов "values" (т.е. ariphmetic[i] = (values[i] + values[i+1]) / 2 ).
+
+Вектор "geometric" заполняется средним геометрическим значением соседних элементов "values" (т.е. geometric[i] = sqrt(values[i] * values[i+1])).
+
+Вычисление среднего арифметического и геометрического должно осуществляться в отдельных функциях:
+
+float ArithmeticMean(int val1, int val2);
+float GeometricMean(int val1, int val2);
+В задаче нельзя использовать алгоритмы STL.
+
+//========================================================================================
+//pch.h
+
+#ifndef PCH_H
+#define PCH_H
+
+#include <iostream>
+#include <vector>
+#include <cmath>
+
+void CalculateAverages(std::vector<int>&, std::vector<float>&, std::vector<float>&);
+float ArithmeticMean(int, int);
+float GeometricMean(int, int);
+
+#endif //PCH_H
+
+
+//pch.cpp
+void CalculateAverages(std::vector<int>& values, std::vector<float>& ariphmetic, std::vector<float>& geometric)
+{
+	for (int i = 0; i < values.size() - 1; i++)
+	{
+		ariphmetic.push_back(ArithmeticMean(values[i], values[i + 1]));
+		geometric.push_back(GeometricMean(values[i], values[i + 1]));
+	}
+}
+
+float ArithmeticMean(int val1, int val2)
+{
+	return static_cast<float>((val1 + val2) / 2.0);
+}
+
+float GeometricMean(int val1, int val2)
+{
+	return static_cast<float>(sqrt(val1 * val2));
+}
+
+ 
+
+2. Создайте класс, содержащий две переменные типа long.
+
+Реализуйте возможность выполнять операцию "логическое ИЛИ" и "логическое И" для объектов данного класса.
+
+Перегрузите оператор +.
+
+Реализуйте операторы инкремента и декремента, изменяющие обе переменные-члены вместе.
+
+Создайте 2 объекта, инициализируйте их разными значениями.
+
+Выполните операции "логическое ИЛИ" и "логическое И" для данных объектов.
+
+Просуммируйте эти два объекта.
+
+
+//===========PairOfLong.h================
+
+#pragma once
+
+#include "pch.h"
+
+class PairOfLong
+{
+public:
+	/*=============CONSTRUCTORS/DESTRUCTOR==============*/
+	PairOfLong();
+	PairOfLong(long, long);
+	~PairOfLong();
+
+	/*===============OPERATORS OVERLOADING===============*/
+	friend PairOfLong operator+(PairOfLong& f, PairOfLong& s);
+	PairOfLong operator++(); //prefix
+	PairOfLong operator++(int); //postfix
+	PairOfLong operator--(); //prefix
+	PairOfLong operator--(int); //postfix
+
+	/*=================MEMBER FUNCTIONS==================*/
+	PairOfLong And(PairOfLong& rPair);
+	PairOfLong Or(PairOfLong& rPair);
+
+private:
+	long first, second;
+};
+
+//===========PairOfLong.cpp================
+#include "pch.h"
+#include "PairOfLong.h"
+
+PairOfLong::PairOfLong(): first(0), second(0)
+{
+}
+
+PairOfLong::PairOfLong(long f, long s): first(f), second(s)
+{
+}
+
+PairOfLong::~PairOfLong()
+{
+}
+
+PairOfLong PairOfLong::operator++()
+{
+	this->first++;
+	this->second++;
+
+	return *this;
+}
+
+PairOfLong PairOfLong::operator++(int)
+{
+	PairOfLong tmp(this->first, this->second);
+
+	this->first++;
+	this->second++;
+
+	return tmp;
+}
+
+PairOfLong PairOfLong::operator--()
+{
+	this->first--;
+	this->second--;
+
+	return *this;
+}
+
+PairOfLong PairOfLong::operator--(int)
+{
+	PairOfLong tmp(this->first, this->second);
+
+	this->first--;
+	this->second--;
+
+	return tmp;
+}
+
+PairOfLong PairOfLong::And(PairOfLong& rPair)
+{
+	return PairOfLong(this->first && rPair.first, this->second && rPair.second);
+}
+
+PairOfLong PairOfLong::Or(PairOfLong& rPair)
+{
+	return PairOfLong(this->first || rPair.first, this->second || rPair.second);
+}
+
+PairOfLong operator+(PairOfLong& f, PairOfLong& s)
+{
+	return PairOfLong(f.first + s.first, f.second + s.second);
+}
+
+//Main.cpp
+
+	//1. Declarations
+	PairOfLong obj1(2, 10), obj2(4, 5);
+
+	//2. 
+	PairOfLong sum = obj1 + obj2;
+	PairOfLong objAnd = obj1.And(obj2);
+	PairOfLong objOr = obj1.Or(obj2);
+
+	objOr = objAnd--;
+	objOr = ++objAnd;
