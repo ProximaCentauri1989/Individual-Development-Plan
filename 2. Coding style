@@ -61,4 +61,56 @@ int PasswordCount(int a, int n, int m, std::vector<int>& result)
 Переменная sum не инициализирована до входа в цикл. При условии если n > m sum никогда не получит значение и будет осущестувлен возврат
 неинициализированной переменной (runtime error).
 
+3. Снова рассмотрим пример с регистрацией обработчиков из главы 1:
+
+// IHandler.h
+
+class IHandler
+{
+public:
+    virtual ~IHandler() = default;
+};
+
+// HandlerRegistry.h
+
+extern std::map<std::string, IHandler*> g_handlerRegistry;
+
+// HandlerRegistry.cpp
+
+#include <map>
+#include "IHandler.h"
+#include "HandlerRegistry.h"
+
+std::map<std::string, IHandler*> g_handlerRegistry;
+
+// Handler1.cpp
+
+#include <map>
+#include "IHandler.h"
+#include "HandlerRegistry.h"
+
+class Handler1 : public IHandler
+{
+};
+
+Handler1 g_handler1;
+
+class Handler1Registrator
+{
+public:
+    Handler1Registrator()
+    {
+        g_handlerRegistry.emplace("Handler1", &g_handler1);
+    }
+};
+
+Handler1Registrator g_handler1Registrator;
+Найдите в приведенном примере нарушения правил кодирования 21-23.
+
+К чему приведет изменение порядка директив #include в .cpp файлах?
+
+Какая ошибка может возникать во время исполнения приведенного кода?
+
+Сколько файлов нужно будет изменить если разработчик решит заменить std::map на std::unordered_map?
+
 
