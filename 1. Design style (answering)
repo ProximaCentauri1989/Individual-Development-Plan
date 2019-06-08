@@ -35,7 +35,7 @@ int PasswordCount(int a, int n, int m, std::vector<int>& result)
 
 void SumDegreesOfNaturalNumber(int a, int n, int m, std::vector<int>& result)
 {
-    result.push_back(static_cast<int>(std::pow(a, i));
+    result.push_back(static_cast<int>(std::pow(a, n));
     
     for (int i = n + 1; i <= m; i++)
     {
