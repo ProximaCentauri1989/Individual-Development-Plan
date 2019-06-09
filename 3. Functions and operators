@@ -1,8 +1,11 @@
-1. Напишите функцию CalculateAverages, принимающую вектор int "values" и возвращающую два вектора float "ariphmetic" и "geometric", которые заполняются на основании исходного вектора "values".
+1. Напишите функцию CalculateAverages, принимающую вектор int "values" и возвращающую два вектора float "ariphmetic" и "geometric", 
+которые заполняются на основании исходного вектора "values".
 
-Вектор "ariphmetic" заполняется средним арифметическим значением соседних элементов "values" (т.е. ariphmetic[i] = (values[i] + values[i+1]) / 2 ).
+Вектор "ariphmetic" заполняется средним арифметическим значением соседних элементов "values" 
+(т.е. ariphmetic[i] = (values[i] + values[i+1]) / 2 ).
 
-Вектор "geometric" заполняется средним геометрическим значением соседних элементов "values" (т.е. geometric[i] = sqrt(values[i] * values[i+1])).
+Вектор "geometric" заполняется средним геометрическим значением соседних элементов "values" 
+(т.е. geometric[i] = sqrt(values[i] * values[i+1])).
 
 Вычисление среднего арифметического и геометрического должно осуществляться в отдельных функциях:
 
@@ -86,8 +89,8 @@ public:
 	PairOfLong operator--(int); //postfix
 
 	/*=================MEMBER FUNCTIONS==================*/
-	PairOfLong And(PairOfLong& rPair);
-	PairOfLong Or(PairOfLong& rPair);
+	bool And(PairOfLong& rPair); 
+	bool Or(PairOfLong& rPair);
 
 private:
 	long first, second;
@@ -145,14 +148,14 @@ PairOfLong PairOfLong::operator--(int)
 	return tmp;
 }
 
-PairOfLong PairOfLong::And(PairOfLong& rPair)
+bool PairOfLong::And(PairOfLong& rPair)
 {
-	return PairOfLong(this->first && rPair.first, this->second && rPair.second);
+	return (this->first && rPair.first) && (this->second && rPair.second);
 }
 
-PairOfLong PairOfLong::Or(PairOfLong& rPair)
+bool PairOfLong::Or(PairOfLong& rPair)
 {
-	return PairOfLong(this->first || rPair.first, this->second || rPair.second);
+	return (this->first || rPair.first) || (this->second || rPair.second);
 }
 
 PairOfLong operator+(PairOfLong& f, PairOfLong& s)
@@ -165,10 +168,18 @@ PairOfLong operator+(PairOfLong& f, PairOfLong& s)
 	//1. Declarations
 	PairOfLong obj1(2, 10), obj2(4, 5);
 
-	//2. 
+	//2. Using
 	PairOfLong sum = obj1 + obj2;
-	PairOfLong objAnd = obj1.And(obj2);
-	PairOfLong objOr = obj1.Or(obj2);
+	
+	if (obj1.And(obj2))
+		std::cout << "obj1 and obj2 is true";
+	else
+		std::cout << "obj1 or obj2 isn't true";
+		
+	if (obj1.Or(obj2))
+		std::cout << "obj1 or obj2 is true";
+	else
+		std::cout << "Nor obj1 and obj2 is true";
 
-	objOr = objAnd--;
-	objOr = ++objAnd;
+	obj1 = sum--;
+	sum = ++obj1;
