@@ -84,4 +84,42 @@ Handler1Registrator g_handler1Registrator;
 изменить и способ доступа к реестру в классе регистраторе.
 8. Владельцем обработчиков является сам реестр. Класс регистратор не инкапсулирует в себе реестр и не отвечает за дальнейшую судьбу
 зарегестрированных в нём обработчиков.
+9. В случае регистрации из нескольких потоков придется предусматривать способ синхронизации потоков при записи в реестр, т.к. реестр
+общий.
 
+//HandlerRegistrator.h
+class IHandler
+{
+public:
+	virtual ~IHandler() = default;
+};
+
+class Handler1 : public IHandler
+{
+};
+
+class Handler1Registrator
+{
+public:
+	Handler1Registrator() {}
+	void Register(std::string, std::shared_ptr<IHandler>);
+	void Unregister(std::string, std::shared_ptr<IHandler>);
+private:
+	std::mutex m_mutex;
+	static std::map<std::string, std::shared_ptr<IHandler>> g_handlerRegistry;
+};
+
+//HandlerRegistrator.cpp
+
+#include "HandlerRegistrator.h"
+void Handler1Registrator::Register(std::string regName, std::shared_ptr<IHandler> handler)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	g_handlerRegistry.emplace(regName, handler);
+}
+
+void Handler1Registrator::Unregister(std::string, std::shared_ptr<IHandler>)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	//Searching for handler and delete it
+}
