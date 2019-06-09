@@ -1,26 +1,4 @@
-1. Найдите ошибки в приведенном коде:
-
-// Library1.h
-
-#define BOOL int
-#define FALSE 0
-#define TRUE 1
-
-BOOL CheckFile(char* name);
-
-// Library2.h
-
-#define ERR_NODATA 42
-
-// Client.cpp
-
-int result = ParseFile(CheckFile);
-if (result = ERR_NODATA) {
-    // ...
-}
-
-========================================================1. ОТВЕТ======================================================================
-Вместо макросов лучше использовать модификатор const. Хоть в данном случае макросы и просты, все же макросы советуется использовать 
+1. Вместо макросов лучше использовать модификатор const. Хоть в данном случае макросы и просты, все же макросы советуется использовать 
 только в тех случаях когда нет другого выхода. Любой макрос свидетельствует о несовершенстве ЯП, программы или программиста. 
 Макросы это просто средство подстановки текста и они почти никогда не являются необходимыми в С++. В перспективе пропроцессор могут вовсе 
 убрать. Поэтому для определения констант лучше использовать const. Первый #define можно убрать вообще, и если реально нужен псевдоним 
@@ -41,80 +19,12 @@ const int ERR_NODATA = 42
 if (result = ERR_NODATA) {
     // ...
 }
-===================================================================================================================================
 
 
-2. Снова рассмотрим функцию из задачи к главе 1:
-int PasswordCount(int a, int n, int m, std::vector<int>& result)
-{
-    int sum;
-    for (int i = n; i <= m; i++)
-    {
-        sum = 0;
-        for (int j = n; j < i; j++)
-        {
-            sum += static_cast<int>(std::pow(a, j));
-        }
-        result.push_back(sum);
-    }
-    return sum;
-}
-Какая ошибка имеется в данной функции в связи с несоблюдением правил кодирования 18-19?
-
-
-========================================================2. ОТВЕТ======================================================================
-Переменная sum не инициализирована до входа в цикл. При условии если n > m sum никогда не получит значение и будет осущестувлен возврат
+2. Переменная sum не инициализирована до входа в цикл. При условии если n > m sum никогда не получит значение и будет осущестувлен возврат
 неинициализированной переменной (runtime error).
-===================================================================================================================================
 
-3. Снова рассмотрим пример с регистрацией обработчиков из главы 1:
-// IHandler.h
-
-class IHandler
-{
-public:
-    virtual ~IHandler() = default;
-};
-
-// HandlerRegistry.h
-extern std::map<std::string, IHandler*> g_handlerRegistry;
-
-// HandlerRegistry.cpp
-#include <map>
-#include "IHandler.h"
-#include "HandlerRegistry.h"
-
-std::map<std::string, IHandler*> g_handlerRegistry;
-
-// Handler1.cpp
-#include <map>
-#include "IHandler.h"
-#include "HandlerRegistry.h"
-
-class Handler1 : public IHandler
-{
-};
-
-Handler1 g_handler1;
-
-class Handler1Registrator
-{
-public:
-    Handler1Registrator()
-    {
-        g_handlerRegistry.emplace("Handler1", &g_handler1);
-    }
-};
-
-Handler1Registrator g_handler1Registrator;
-
-- Найдите в приведенном примере нарушения правил кодирования 21-23.
-- К чему приведет изменение порядка директив #include в .cpp файлах?
-- Какая ошибка может возникать во время исполнения приведенного кода?
-- Сколько файлов нужно будет изменить если разработчик решит заменить std::map на std::unordered_map?
-
-========================================================3. ОТВЕТ======================================================================
-Объекты уровня пространства имен в разных единицах компиляции не должны зависеть друг от друга при инициализации, поскольку порядок
+3. Объекты уровня пространства имен в разных единицах компиляции не должны зависеть друг от друга при инициализации, поскольку порядок
 инициализации не определен. В // Handler1.cpp при создании объекта g_handler1Registrator идет работу с мапой g_handlerRegistry, которая
 находиться в другой единице трансляции HandlerRegistry.cpp. Не определено будет ли вызван конструктор g_handlerRegistry до того как будет
 вызван конструктор g_handler1Registrator (будет ли создан реестр до того как мы попытаемся им воспользоваться или нет?). Так же,
@@ -140,3 +50,61 @@ Handler1Registrator g_handler1Registrator;
 При замене std::map на std::unordered_map придется изменить файлы HandlerRegistry.h, HandlerRegistry.cpp и Handler1.cpp. Данный факт
 нарушает принцип расширяемости. Это свойство, позволяющее улучшать систему, не нарушая ее основной структуры. Изменение одного фрагмента
 системы не должно влиять на ее другие фрагменты. Внесение наиболее вероятных изменений должно требовать наименьших усилий.
+
+4. В коде нарушены такие правила: 
+- присутствуют магические числа
+- глубокая вложенность (много if-ов и else-ов)
+
+const size_t MIN_PAGE_SIZE = 512
+const size_t MAX_PAGE_SIZE = 65536
+const size_t ALTERNATIVE_MAX_PAGE_SIZE = 1
+
+//Я просто убрала магические числа и заменил вложенность на последовательность.
+//Функция по прежнему выполняет много задач (проверок), но все они связаны с конечной целью:
+//получить содержимое страницы по указанному номеру.
+
+uint64_t GetPage(IFile& dbFile, uint32_t pageNumber, std::vector<uint8_t>& pageData)
+{
+    assert(pageData.empty() && "Out parameter must be empty");
+    
+    //Checking for correctness of database size
+    if(dbFile.GetSize() < sizeof(SQLiteDbHeader))
+        throw SQLiteException(ERR_INVALID_DATABASE_SIZE, "SQLite database is too small");
+    
+    //Reading a header from database
+    const size_t dbHeaderDataSize = sizeof(SQLiteDbHeader);
+    std::vector<uint8_t> dbHeaderData(dbHeaderDataSize, 0);
+    size_t read = dbFile.Read(dbHeaderData, 0, dbHeaderDataSize);
+    
+    //Checking for correctness of previous read operation
+    if(dbHeaderDataSize != read)
+        throw SQLiteException(ERR_FILEREAD, "Failed to read SQLite database header");
+    
+    //Creating a header
+    SQLiteDbHeader header;
+    ::memcpy(&header, dbHeaderData.data(), dbHeaderDataSize);
+            
+    //Checking for database signature
+    const std::string signature("SQLite format 3");    
+    if(signature != reinterpret_cast<const char*>(header.signature))
+        throw SQLiteException(ERR_INVALID_DATABASE_FORMAT, "The format of the specified database is incorrect. Please use SQLite database.");
+    
+    //Checking for page size
+    uint32_t pageSize = (header.pageSize == ALTERNATIVE_MAX_PAGE_SIZE) ? MAX_PAGE_SIZE : header.pageSize;                
+    if(!(pageSize >= MIN_PAGE_SIZE && pageSize <= MAX_PAGE_SIZE && !(pageSize & (pageSize - 1))))
+        throw SQLiteException(ERR_INVALID_DATABASE_PAGE_SIZE, "Invalid database page size");                
+    
+    //Get page count and cheсking it for correctness
+    uint64_t pagesCount = dbFile.GetSize() / pageSize;
+    if(pageNumber == 0 || pageNumber > pagesCount)
+        throw SQLiteException(ERR_INVALID_PAGE_NUMBER, "Invalid page number: " + std::to_string(pageNumber));
+    
+    //Attempting to read a page data
+    uint64_t pageOffset = (pageNumber - 1) * pageSize;
+    pageData.resize(pageSize);
+    
+    if(dbFile.Read(pageData, pageOffset, pageSize) != pageSize)
+         throw SQLiteException(ERR_FILEREAD, "Failed to read SQLite database page");
+
+    return pageOffset;
+}
