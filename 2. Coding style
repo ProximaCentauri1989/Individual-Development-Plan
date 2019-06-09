@@ -67,7 +67,7 @@ uint64_t GetPage(IFile& dbFile, uint32_t pageNumber, std::vector<uint8_t>& pageD
 {
     assert(pageData.empty() && "Out parameter must be empty");
     
-    //Checking for correctness of database size
+    //Checking for correctness of a database size
     if(dbFile.GetSize() < sizeof(SQLiteDbHeader))
         throw SQLiteException(ERR_INVALID_DATABASE_SIZE, "SQLite database is too small");
     
