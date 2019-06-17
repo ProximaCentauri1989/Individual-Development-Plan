@@ -1,0 +1,242 @@
+1. Какие правила кодирования нарушены в коде ниже? Какие потенциальные проблемы вы видите при работе с данными классами
+и как их избежать? Измените код соответствующим образом.
+
+class PhoneInfo
+{
+    public:
+        PhoneInfo(const std::string& number, const std::string& countryCode, const std::string& model) 
+        : m_number(number)
+        , m_countryCode(countryCode)
+        , m_fullNumber(countryCode + number)
+        {
+            m_model = model;
+            LogInfo();
+        }
+        
+        ~PhoneInfo()
+        {
+            LogInfo();
+        }
+        
+    private:
+        virtual void LogInfo() = 0;
+    
+    private:
+        std::string m_model;
+        std::string m_fullNumber;
+        std::string m_number;
+        std::string m_countryCode;
+};
+
+class IPhone : public PhoneInfo
+{
+    public:
+        IPhone(const std::string& number, const std::string& countryCode, const std::string& model)
+        : PhoneInfo(number, countryCode, model)
+        {}
+        
+    private:
+        virtual void LogInfo() override
+        {
+            //TODO Add log info
+            throw std::runtime_error("Function not implemented");
+        }
+};
+
+Нарушены следующие правила:
+1. Правило №47. Порядок инициализации полей класса не соответствует порядку их обьявления. В данном конкретном случае, 
+ошибок не произойдет, т.к. поля при инициализации не используют друг друга. Порядок инициализации таков:
+	1) создать пустую строку m_model;
+	2) инициализировать  m_fullNumber(countryCode + number)
+	3) инициализировать m_number(number)
+	4) инициализировать m_countryCode(countryCode)
+	5) присвоить m_model = model;
+Если бы, при несоответствии порядка инициализации порядку обьявления, какие-либо поля использовали друг друга, можно было бы получить 
+необработанное исключение при попытке использовать переменную, которой еще не существует. Это могло бы пройзоти если бы m_fullNumber 
+использовал m_number вместо number, в предположении, что m_number уже существует (поскольку он идет первым в спсике инициализации).
+2. Правило №48. В конструкторе PhoneInfo поле  m_model получает своё значение путем присваивания в теле конструктора, вместо списка 
+инициализации. Получаем один лишний вызов. Сначала конструктор m_model, затем оператор присваивания.
+3. Правило №49. В конструкторе и дестркторе PhoneInfo вызывается виртуальная функция. Виртуальные функции внтури конструкторов и 
+деструкторов не рассматриваются как виртуальные.
+    При этом, функция PhoneInfo - чистая виртуальная функция. Вызов такой функции в конструкторе или деструкторе - неопределенное 
+    поведение (функция не реализована). Пример того что может произойти: ошибка компоновки (т.к. у функции нету тела).
+4. Правило №50. Класс PhoneInfo используется в качестве базового, но его деструктор не обьявлен как виртуальный. Если попытаться удалить 
+производные обьекты имея указатель на PhoneInfo, при отсутствии виртуального деструктора в базовом классе, произойдет утечка памяти
+и производная часть обьекта не удалится (только базовая).
+
+Изменения:
+Порядок инициализации соответствует порядку обьявления.
+Деструктор базового класса чисто виртуальный, благодаря чему исправлена ошибка согласно правилу 50 и при этом класс PhoneInfo 
+остается абстрактным. Виртуальная функция LogInfo больше не чисто виртуальная. Вызывается через добавленную публичную функцию 
+Log_Info(). После конструирования, при вызове Log_Info() через указатель на базовый класс сработает полиморфизм и будет выполнен 
+вызов Log_Info() из производного класса. 
+
+//PhoneInfo.h
+class PhoneInfo
+{
+public:
+	PhoneInfo(const std::string& number, const std::string& countryCode, const std::string& model)
+		:m_model(model)  
+		,m_fullNumber(countryCode + number)
+		,m_number(number)
+		,m_countryCode(countryCode)
+	{
+		Log_Info();
+	}
+
+	virtual ~PhoneInfo() = 0
+	{
+		Log_Info();
+	}
+
+	void Log_Info()
+	{
+		LogInfo();
+	}
+
+private:
+	virtual void LogInfo()
+	{
+		/*Log info*/
+		std::cout << "Logged in base!\n";
+	}
+
+private:
+	std::string m_model;
+	std::string m_fullNumber;
+	std::string m_number;
+	std::string m_countryCode;
+};
+
+class IPhone : public PhoneInfo
+{
+public:
+	IPhone(const std::string& number, const std::string& countryCode, const std::string& model)
+		: PhoneInfo(number, countryCode, model)
+	{}
+
+private:
+	void LogInfo()
+	{
+		std::cout << "Logged in Derived!\n";
+	}
+};
+
+
+2. Дана структура Test
+
+struct Test
+{
+    std::string data;
+};
+Напишите класс, содержащий в членах указатель на структуру Test. Этот класс должен быть копируемым, определите все необходимые
+методы для того, чтобы копирование стало возможным. Обеспечьте строгую гарантию безопасности исключений при копировании.
+
+//Header.h
+struct Test
+{
+	std::string data;
+};
+
+class SomeClass
+{
+public:
+	explicit SomeClass(Test *ptr = nullptr) : pTest(ptr) {}
+	SomeClass(const SomeClass& rObj);
+	SomeClass(SomeClass&& rObj);
+	SomeClass& operator=(const SomeClass& rObj);
+	SomeClass& operator=(SomeClass&& rObj);
+	~SomeClass();
+private:
+	void Alloc(const SomeClass& rObj);
+	void Dealloc();
+
+	Test *pTest;
+};
+
+//Header.cpp
+SomeClass::SomeClass(const SomeClass &rObj) : pTest(nullptr)
+{
+	if (this != &rObj && rObj.pTest) //if rObj isn't the same as *this and pTest in rObj is correct
+	{
+		try
+		{
+			this->Alloc(rObj);
+			this->pTest->data = rObj.pTest->data;
+		}
+		catch (const std::bad_alloc& ba)
+		{
+			std::cout << "An error occurred while creating an object!\n";
+		}
+	}
+}
+
+//Move copy constructor
+SomeClass::SomeClass(SomeClass&& rObj) : pTest(rObj.pTest)
+{
+	rObj.pTest = nullptr;
+}
+
+SomeClass& SomeClass::operator=(const SomeClass& rObj)
+{
+	if (this != &rObj && rObj.pTest)
+	{
+		Test* old = this->pTest; //save old pointer
+		try
+		{
+			this->Alloc(rObj); //allocate memory for new pointer (possible exception)
+			this->pTest->data = rObj.pTest->data;
+			delete old; //if Alloc was okay
+		}
+		catch (const std::bad_alloc& ba)
+		{
+			this->pTest = old; //if Alloc wasn't okay
+		}
+	}
+
+	return *this;
+}
+
+//Move assignment operator
+SomeClass& SomeClass::operator=(SomeClass && rObj)
+{
+	if (this != &rObj)
+	{
+		this->pTest = rObj.pTest;
+		rObj.pTest = nullptr;
+	}
+
+	return *this;
+}
+
+SomeClass::~SomeClass()
+{
+	this->Dealloc();
+}
+
+//Allocate memory
+void SomeClass::Alloc(const SomeClass& rObj)
+{
+	try
+	{
+		pTest = new Test;
+	}
+	catch (const std::bad_alloc& ba)
+	{
+		throw;
+	}
+}
+
+//Free memory
+void SomeClass::Dealloc()
+{
+	if (pTest)
+		delete pTest;
+}
+
+3. Чем чревата срезка объектов и как её избежать?
+
+Когда в функцию передается обьект производного класса с целью использования полиморфного поведения (вызова методов производного класса через ссылку или указатель на базовый) и, при этом, формальный параметр функции указан как тип базового класа по значению
+происходит срезка типа до типа базового класса, т.к. при передаче по значению вызывается конструктор копирования базового класса и конструируется копия базовой части обьекта. На этом полиморфизм заканчивается и для всех методов, которые будут вызваны, будут вызваны
+из базовые версии. Во избежания, если требуется сохранить полиформное поведение нужно указывать в сигнатуре функции передачу по ссылке или указателю на базовый класс, либо поместить копирующий конструктор базового класса в защищенную секцию, что не даст выполнять срезку,
+а для копирования предусмотреть виртуальную функцию копирования и переопределять ее в производных классах.
