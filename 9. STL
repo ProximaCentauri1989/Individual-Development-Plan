@@ -1,0 +1,104 @@
+1. Дана функция на C, которая формирует путь к динамической библиотеке, находящейся рядом с исполняемым файлом Windows. Вызывающая сторона должна удалить указатель, выделенный этой функцией:
+
+// You should free the memory allocated by this function
+void GetLibraryPath(wchar_t** path)
+{
+    if (!path)
+    {
+        return;
+    }
+    *path = malloc(MAX_PATH * sizeof(wchar_t));
+
+    // Get the full path of the current executable file
+    ::ZeroMemory(*path, MAX_PATH * sizeof(wchar_t));
+    const DWORD pathLen = ::GetModuleFileNameW(NULL, *path, MAX_PATH);
+    if (pathLen == 0)
+    {
+        free(*path);
+        *path = nullptr;
+        return;
+    }
+
+    // Get folder path from the executable file path and modify it by adding the filename of my library
+    wchar_t* lastSlash = wcsrchr(*path, '\\'); // Finds the last occurrence of the character in the given string
+    if (lastSlash == nullptr)
+    {
+        free(*path);
+        *path = nullptr;
+        return;
+    }
+    wcscpy(lastSlash + 1, L"MyLib.dll\0");
+}
+1а. Эту функцию переместили в проект на C++, ваша задача - переписать её с использованием контейнеров STL, изменив при этом сигнатуру функции.
+
+void GetLibraryPath(std::wstring& path)
+{
+	const DWORD pathLen = ::GetModuleFileNameW(NULL, const_cast<wchar_t*>(path.c_str()), MAX_PATH);
+
+ 	if (pathLen != 0)
+    	{
+       		path.erase(begin(path) + path.find_last_of('\\') + 1, end(path));
+		path += L"MyLib.dll\0";
+    	}
+}
+
+1б. Поступила задача сделать эту функцию экспортируемой из библиотеки и изменить интерфейс следующим образом:
+
+// The returned string is static, so you should not delete it
+const wchar_t* GetLibraryPath();
+Теперь вызывающая сторона не должна удалять указатель возвращенный из функции, т.к. он должен быть размещен в статической памяти.
+
+std::wstring path(MAX_PATH, '\0');
+
+wchar_t* GetLibraryPath()
+{
+	const DWORD pathLen = ::GetModuleFileNameW(NULL, const_cast<wchar_t*>(path.c_str()), MAX_PATH);
+	path.erase(begin(path) + path.find_last_of('\\') + 1, end(path));
+	path += L"MyLib.dll\0";
+
+	return const_cast<wchar_t*>(path.c_str());
+}
+
+
+
+-----------------------------------------------------------
+
+
+
+2д. Еще через некоторое время стало понятно, что намного удобнее работать с товарами, информация о которых всегда отсортирована по сроку годности. 
+Измените определения в файле ProductInfo.h таким образом, чтобы контейнер ProductsInfo всегда содержал товары, отсортированные по сроку годности. 
+При этом нельзя изменять члены-данные структуры ProductInfo, но можно добавить необходимые методы.
+
+Заменим std::vector на std:::multiset  добавим компаратор в структуру ProductInfo
+
+struct ProductInfo
+{
+	std::string name;
+	double price;
+	time_t shelfLife;
+
+	/*comparator*/
+	struct ProductsCompare {
+		bool operator()(const ProductInfo& first, const ProductInfo& second) {
+			return first.shelfLife < second.shelfLife;
+		}
+	};
+};
+
+Определение типа контейнера изменим на:
+
+using ProductsInfo = std::multiset<ProductInfo, ProductInfo::ProductsCompare>;
+
+3. Дан интерфейс файла:
+
+class IFile
+{
+public:
+    virtual ~IFile = default;
+    /* methods */
+};
+
+Дайте определение контейнеру, который способен хранить список полиморфных объектов с базовым типом IFile.
+
+Для хранения обьектов различных типов, но связанных в одну иерархию (это будут все типы производные от базового IFile включая его) можно использовать гетерогенный контейнер вида:
+std::vector<std::shared_ptr<IFile>> files;
