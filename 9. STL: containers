@@ -60,10 +60,63 @@ wchar_t* GetLibraryPath()
 }
 
 
+2. Программа занимается учетом товаров, базовая информация о которых записывается в структуры типа ProductInfo
 
------------------------------------------------------------
+// ProductInfo.h
+struct ProductInfo
+{
+    std::string name;
+    double price;
+    time_t shelfLife;
+};
+
+2а. Определите тип, который вы бы использовали для хранения набора таких структур (допишите строку с директивой using):
+
+Если не заданы следующие требования:
+- порядок хранения и извлечения структур не задан (значит не stack, ни queue)
+- поиск элементов по ключу не требуется (значит не ассоциативные контейнеры)
+- частые операции вставки удаления в середине не заданы (не list)
+- количество хранимых обьектов не определено (выбор между std::vector, std::deque)
+
+Воспользоваться правилом "По умолчанию используйте вектор".
+
+// ProductInfo.h
+struct ProductInfo
+{
+    std::string name;
+    double price;
+    time_t shelfLife; // Expiration date
+};
+using ProductsInfo = std::vector<ProductInfo>;
 
 
+2б. Напишите функцию, которая будет удалять все просроченные товары из набора. После удаления продуктов из набора размер контейнера нужно уменьшить до реально потребляемого размера:
+
+// ProductsUtils.h
+void DeleteExpired(ProductsInfo& products, time_t notBefore) {
+    auto pos = std::remove_if(begin(products), end(products), [notBefore](auto p) { return p.shelfLIfe <= notBefore });
+    products.erase(pos, end(products));
+    myvector.shrink_to_fit();
+}
+
+2в. Напишите функцию, которая формирует набор просроченных товаров вместо их удаления:
+
+// ProductsUtils.h
+void GetExpired(ProductsInfo& products, time_t notBefore, ProductsInfo& productsExpired)
+{
+    auto pos = std::copy_if(begin(products), end(products), productsExpired.begin(), [notBefore](auto p) { return p.shelfLIfe <= notBefore });
+    std::cout << std::distance(productsExpired.begin(), pos) << " expired goods were copied!\n"; 
+}
+
+2г. С некоторых пор стало удобнее упорядочивать товары по возрастанию их срока годности. Напишите еще одну функцию, которая формирует набор просроченных товаров, принимая в первом параметре продукты отсортированые по возрастанию поля ProductInfo::shelfLife:
+
+// ProductsUtils.h
+void GetExpiredFromSorted(ProductsInfo& productsSorted, time_t notBefore, ProductsInfo& productsExpired)
+{
+    productsExpired.clear();
+    auto pos = std::copy_if(begin(products), end(products), productsExpired.begin(), [notBefore](auto p) { return p.shelfLIfe <= notBefore });
+    std::cout << std::distance(products.begin(), pos) << " sorted expired goods were copied!\n"; 
+}
 
 2д. Еще через некоторое время стало понятно, что намного удобнее работать с товарами, информация о которых всегда отсортирована по сроку годности. 
 Измените определения в файле ProductInfo.h таким образом, чтобы контейнер ProductsInfo всегда содержал товары, отсортированные по сроку годности. 
