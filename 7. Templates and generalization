@@ -1,0 +1,104 @@
+1. Вам нужно реализовать функцию starts_with для следующих типов: std::string, std::wstring, std::vector
+
+Какой тип полиморфизма вы примените для решения этой задачи и почему? Как будет выглядеть сигнатура функции starts_with?
+
+Будет использован шаблонный полиморфизм:
+
+template<typename T, typename Container> 
+decltype(auto) starts_with(Container&& cont)
+{
+      return std::forward<Container>(cont)[0];
+}
+
+
+2. Опишите требования (точки настройки) к типу Container для шаблона LogInvalidElements
+
+namespace utils
+{
+    template <class Element>
+    bool IsInvalid(const Element& element)
+    {
+        return element == 0;
+    }
+    
+    template <class Element>
+    void Log(const Element& element)
+    {
+        //...
+    }
+
+    template <class Container>
+    void LogInvalidElements(Container& container)
+    {
+        Container::const_iterator it = container.begin();
+        for (; it != Last(container); ++it)
+        {
+            if (IsInvalid(*it))
+            {
+                Log(*it);
+            }
+        }
+    }
+}
+
+Точки настройки:
+- тип Container должен обеспечить наличие random access iterator, указывающий на константный value_type.
+- от типа Container требуется "Last-совместимость", то есть наличие функции, которая имеет имя Last и не является функцией-членом. 
+  Поиск данной функции будет выполнятся через ADL (аргументо-зависимый поиск).
+- вызовы IsInvalid и Log это так же точки настройки. Поиск функции с использованием ADL, то есть в том пространстве имен, где в котором
+находиться тип элемента, на который указывает итератор. В данном случае предполагалось, что будут вызываться реализации из utils, 
+поэтому следовало бы квалифицировать вызовы функций путем указания пространства имен utils::
+
+Как добиться того, чтобы вызывалась только указанная реализация функции Log и никакая другая?
+
+Для вызова только указанной реализации Log (из пространства имен utils), необходимо запретить ADL (аргументо-зависимый поиск) 
+квалифицировав вызов функции Log следующим образом:
+
+utils::Log(*it)
+
+Таким образом, вызов не будет точкой настройки.
+
+Реализуйте свой вариант функции IsInvalid для типа files::HandleType, при этом условие должно выглядеть так
+
+//files::HandleType handle
+handle == files::HandleType::Invalid
+
+template<>
+bool IsInvalid(const files::HandleType& element)
+{
+	return element == files::HandleType::Invalid;
+}
+
+3. Ваш коллега написал код, который выполняет поиск в массиве ключей. Оказалось, что вам нужна такая же реализация для вектора ключей. 
+Реализуйте нужный вариант.
+
+struct Key
+{
+    int id;
+    int value;
+};
+
+static const Key g_masterKey = {0, 0};
+
+template<template <typename... Args> class Container, typename... Types>
+const Key& FindKey(const Container<Types...>& keys, int id)
+{
+	if (keys.empty())
+	{
+		//we should use master key when user did not create key array
+		return g_masterKey;
+	}
+
+	auto it = keys.begin();
+
+	while (it != keys.end())
+	{
+		if (it->id == id)
+		{
+			return *it;
+		}
+		it++;
+	}
+
+	throw std::runtime_error("Invalid key id");
+}
