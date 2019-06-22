@@ -1,0 +1,128 @@
+1. Какие сущности (типы, функции) стоить хранить в одних пространствах имён, а какие в разных?
+
+Типы и их свободный интерфейс нужно хранить в одном пространстве имен (стоит вспомнить принцип ADL)
+Свободный интерфейс - это функции, которые не являются членами класса, но при этом являются частью интерфейса. Это могут быть любые 
+вспомогательные функции, которые вынесены за пределы тела класса или операторы. То есть, это любые функции, которые упоминают некий 
+класс и поставляются вместе с ним. Они являются его логической частью. Наиболее яркий пример это перегруженные операторы вывода в поток,
+которые делаются дружественными, чтобы слева всегда стоял поток, а не обьект. То есть, для классов и структур должен быть вид как для 
+встроенных типов: cout << obj.
+
+Типы и функции хранятся в разных пространствах имен если они не предназначены для совместной работы. Не стоит размещать типы в тех 
+же пространствах имен что и шаблоны функций или операторов.
+
+2. Опишите проблемы, с которыми столкнется разработчик класса vector. Как этих проблем можно избежать?
+
+//Utils.h
+#pragma once
+using namespace std;
+
+namespace utils
+{
+    void getFileData(const string& path, vector<uint8_t>& data);
+    ...
+}
+
+// vector.h
+#pragma once
+
+template<class T>
+class vector
+{
+public:
+    vector(T x, T y, T z, size_t size);
+    float size() const;
+    void normalize();
+    ...
+};
+
+// vector.cpp
+#include "vector.h"
+#include "Utils.h"
+
+// Geometric vector logic
+
+
+Выполнено подключение пространства имен std в заголовочном файле utils.h (нарушено правило кодирования #59).
+При необходимости работать с пространством имен нужно явно квалифицировать имена с указанием соответствующего пространства имен. 
+То есть, в сигнатуре функции getFileData нужно указать string как std::string.
+Иначе, может возникнуть колизия, когда вместо вектора, обьявленного в vector.h будет использован вектор из std, в
+котором просто может отсутствовать то что нам нужно для работы функции getFileData. Может быть вызов функций, которых нет 
+в std::vector и код функции getFileData не скомпилируется.
+
+3. Что здесь может пойти не так? Если здесь нарушены правила кодирования, напишите, какие именно?
+
+#include <iostream>
+#include <thread>
+
+void funct()
+{
+    try
+    {
+        throw std::runtime_error("oops");
+    }
+    catch (std::runtime_error&)
+    {
+        throw std::exception("Heartbreaking scream");
+    }
+}
+
+int main() 
+{
+    try
+    {
+        std::thread thread(funct);
+        thread.join();
+    }
+    catch (std::bad_function_call& ex)
+    {
+        std::cout << ex.what();
+    }
+    return 0;
+}
+
+Нарушен оправило #62 (пересечение исключениями границ модулей).
+Исключение std::exception("Heartbreaking scream") происходит в другом потоке, а обработка написана в потоке, в котором
+выполняется main. Реагировать на исключение нужно в том же потоке, в котором оно возникло. Это базовый рецепт работы с исключениями. 
+Т.к. во вторичнмо потоке нет обработчика для std::exception("Heartbreaking scream") будет вызвана функция std::terminate(), которая
+по-умолчанию вызовет функцию abort() и программа завершит свою работу с ошибкой. Но книга "Стандарты программирования" была написана
+давно, и на самом деле некоторые компиляторы С++ поддерживают передачу исключения из одного потока в другой, но это делается с помощью
+exception_ptr (указателя на исключение): 
+https://docs.microsoft.com/ru-ru/cpp/standard-library/exception-typedefs?view=vs-2019#exception_ptr.
+
+4. С какими проблемами можно столкнуться, если создавать объект в одном модуле, а удалять в других модулях?
+
+Выделение памяти в одном модуле, а освобождение в другом создает зависимость между модулями, такую, что для корректной работы написаного
+кода нужно будет чтобы модули комплировались одной и той же версией компилятора с одинаковыми флагами при использовании одной и той же
+реализации стандартной библиотеки С++, что может быть нарушено. То есть, функции выделения и освобождения памяти при пересечении границ
+модулей могут не соответствовать друг другу. delete в реализации №1 может отличаться от оператора delete в №2, работа котрого не 
+согласована c оператором new из реализации №1, использованого при выделении памяти. 
+
+5. Существует набор функций, которые считывают данные из распределенного хранилища. Хранилище представляет из себя базу, в которой 
+все файлы хранятся в отдельных чанках. Для того чтобы прочитать весь файл, нужно открыть файл, пройтись по всем его чанкам, 
+и закрыть файл. Функции написаны на C++ и имеют такой интерфейс:
+
+// File DistributedStorage/Read.h
+
+#pragma once
+#include <stdint.h>
+#include <vector>
+
+// Opens the file with specified name for reading.
+// Returns the number of the first chunk for specified file or 0 if file is not found
+uint64_t StartReadFileFromDistributedStorage(const std::string& fileName);
+// Reads the data from specified chunk and fills the passed vector with it. The vector should be resized to desired size before passing to this function: function does not increase the size of vector, but reduces this size if it is too big. You should determine the size of data read by changed size of the passed vector.
+// Returns the number of the next available chunk or 0 if it was the last chunk of the file.
+// Note: returned value may stay the same after calling this function if the size of passed vector was to small to place all chunk data. In this case you should call function again with the same chunkNum to retrieve the data which is left in the chunk.
+uint64_t ReceiveDataFromDistributedStorage(uint64_t chunkNum, std::vector<uint8_t>& data);
+// Closes file which was opened for reading. The file is determined by the number of its first chunk, returned by StartReadFileFromDistributedStorage.
+void EndReadFileFromDistributedStorage(uint64_t firstChunkNum);
+
+Со временем группе программистов из соседнего проекта понадобился описанный функционал и они заходели экспортировать его из динамической библиотеки. Для этого нужно создать для описанных функций переносимый интерфейс, написанный на C. С другой стороны, местные программисты давно хотели использовать класс вместо вызова отдельных функций. Обе группы девов захотели сделать обе вещи сразу и позвали вас на помощь.
+
+Помогите разработчикам обоих проектов: создайте 2 заголовочных файла, в которых будут:
+
+1. Переносимые объявления функций в стиле C.
+
+2. Описание класса, инкапсулирующего работу данных функций. 
+
+Файлы реализации положите рядом, реализация тоже важна :) 
