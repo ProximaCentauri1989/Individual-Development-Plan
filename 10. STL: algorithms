@@ -1,0 +1,147 @@
+1. Напишите шаблонную функцию, которая формирует список указателей на элементы любого контейнера с любым типом данных:
+
+std::vector<int> vec = { 1, 4, 2, 9, 7, 4, 3, 5 };
+std::list<int*> lst;
+/* Your function is called here with vec as input parameter and lst as output parameter*/
+lst = GetListOfPointers<int>(vec);
+
+assert(lst.size() = vec.size());
+assert(lst.front() = &vec.front());
+assert(lst.back() = &vec.back()); 
+
+/*Template*/
+template<typename T, typename Container>
+decltype(auto) GetListOfPointers(Container& container)
+{
+	std::list<T*> pList;
+	for_each(begin(container), end(container), [&pList](T& elem) { pList.push_back(&elem); });
+	return pList;
+}
+
+2. Дан вектор отсортированных целочисленных значений. Реализуйте функцию, которая найдет заданный элемент этого вектора и вернет 
+итератор на него:
+
+std::vector<size_t>::const_iterator FindValue(const std::vector<size_t>& v, size_t value)
+{
+    /* Your code goes here */
+    return std::find_if(begin(v), end(v), [value](size_t elem) { return elem == value; });
+}
+
+int main()
+{
+    std::vector<size_t> v = { /* set of numbers where value 42 is present */ };
+    auto found = FindValue(v, 42);
+    assert(found != v.end());
+    assert(*found == 42);
+}
+
+
+3. Дан вектор неупорядоченных целочисленных значений. Реализуйте функцию, которая сортирует первую половину входного вектора и 
+помещает результат в выходной параметр, не изменяя при этом входной вектор:
+
+void GetSortedHalf(const std::vector<size_t>& in, std::vector& sortedHalf)
+{
+    /* Your code goes here */
+    sortedHalf.resize(in.size() / 2);
+	  std::partial_sort_copy(begin(in), begin(in) + in.size() / 2, sortedHalf.begin(), sortedHalf.end());
+}
+
+int main()
+{
+    std::vector<size_t> v = { 4, 2, 5 ,7 ,9, 3 };
+    std::vector<size_t> sortedHalf;
+    GetSortedHalf(v, sortedHalf);
+    assert(sortedHalf.size() == v.size() / 2);
+    assert(sortedHalf.at(0) == 2);
+    assert(sortedHalf.at(1) == 4);
+    assert(sortedHalf.at(2) == 5);
+}
+
+4. Этот код написан для того, чтобы формировать выходной вектор значений, состоящий из каждого третьего элемента входного контейнера. Будет ли этот код выполнять то, для чего предназначен?
+
+template<class T>
+class EveryThirdComparator
+{
+    unsigned char counter;
+public:
+    EveryThirdComparator()
+        : counter(0) { }
+
+    bool operator()(T val)
+    {
+        if (++counter == 3)
+        {
+            counter = 0;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+};
+
+int main()
+{
+    std::vector<size_t> v = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    std::vector<size_t> everyThirds;
+    auto comparator = EveryThirdComparator<size_t>();
+    for (auto it = std::find_if(v.begin(), v.end(), comparator);
+        it != v.end(); std::find_if(++it, v.end(), comparator))
+    {
+        if (it != v.end()) everyThirds.push_back(*it);
+    }
+    for (auto num : everyThirds)
+    {
+        std::cout << num << ", ";
+    }
+}
+Замените компаратор на функцию со статической переменной counter. Повлияет ли это на результат выполнения? Почему?
+
+template<class T>
+GetEveryThird(T val)
+{
+    static unsigned char counter = 0;
+    if (++counter == 3)
+    {
+        counter = 0;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+Напишите эффективную реализацию, которая справится с поставленной задачей.
+
+Код не выполняет то для чего он предназначен как в при первом варианте компаратора, так и при втором. 
+Первый поиск 3-го по счету элемента успешен (когда происходит инициализация it в цикле), но затем, 
+на каждой последующей итерации, it будет просто сдвигаться на 1 позицию вправо и в вектор попадут 
+все элементы после элемента со значением 3, т.к. it не становиться на позицию найденного элемента, 
+а остается на той же позиции после инкремента.
+
+Буквально происходит следующее: 
+1) нашли 3,  поместили в вектор 3
+2) сдвинулись на 4-ку, нашли 6-ку,  поместили в вектор 4, т.к. it по прежнему на позиции 4.
+3) сдвинулись на 5-ку, нашли 7-ку,  поместили в вектор 5, т.к. it по прежнему на позиции 5.
+4) так до конца контейнера.
+
+Один из вариантов: самописный алгоритм, который сокрректирован с учетом обновления позиции it:
+auto it = v.begin();
+while (it != v.end())
+{
+	it = std::find_if(it, v.end(), comparator);
+	if (it != v.end())
+	{
+		everyThirds.push_back(*it);
+		it++;
+	}
+}
+
+Использование стандартного STL-алгоритма (оставить тот же компаратор, но воспользоваться алгоритмом copy_if):
+
+std::vector<size_t> v = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+std::vector<size_t> everyThirds(v.size() / THIRD_PART);
+auto comparator = EveryThirdComparator<size_t>();
+
+copy_if(v.begin(), v.end(), everyThirds.begin(), comparator);
