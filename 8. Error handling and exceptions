@@ -1,0 +1,105 @@
+1. Проведите ревью функции FindNode. Какие улучшения вы могли бы посоветовать?
+
+//circular list
+struct ListNode
+{
+    ListNode* next;
+    int value;
+};
+
+void FindNode(ListNode* head, int value) throw(ListNode*)
+{
+    ListNode* current = head;
+    do
+    {
+        if (current->value == value)
+        {
+            throw current;
+        }
+        
+        assert ((current = current->next) != nullptr);
+    }
+    while (current != head);
+    
+    current = new ListNode(value);
+    assert(current != nullptr);
+    throw current;
+}
+
+
+1. В случае нахождения узла функция FindNode "возвращает" его через генерацию исключения throw. Для этого, присутствует спецификация 
+ак иссключения  throw(ListNode*) (нарушено правило 75). Если в функцию будет передан head, который сразу имеет значение nullptr, 
+то при попытке разыменования current в проверке if (current->value == value) на первой итерации do, может возникнуть непредвиденное
+исключение и последующий вызов terminate.
+2. Сама по себе идея возврата узла через генерацию исключений выглядит странной, и отсюда появляется недостаток когда после петли do
+генерация исключения выполняется по указателю (нарушено правило 73).
+3. В случае если конец списка не был обнаружен и условие current != head стало ложним, то у односвязного списка есть петля. 
+В таком случае выполняется создание копии головы узла и она возвращается так же через исключение. Здесь выделение памяти выполняется
+внутри функции, а освобождать ее придется вызывающего коду после. Но откуда вызывающий код знает что её нужно освобождать? 
+Представим случай когда узел с value будет найден. Мы вернем указатель на узел внутри списка, и, освободив память, разрушим список. 
+
+Исправленная версия:
+ListNode* FindNode(ListNode* head, int value) //1) убрал спецификацию исключений (deprecated since C++11), возворащаемое значение заменил на ListNode*
+{
+    assert(head && "head was nullptr") ; //2) ввел проверку на nullptr для входного указателя
+
+    ListNode* current = head;
+    do
+    {
+        if (current->value == value)
+        {
+            return current; //3) throw заменил на return с учетом изменения сигнатуры
+        }
+        
+        current = current->next; //4) убрал проверку assert при перемещенеи current на следующий узел
+    }
+    while (current != nullptr && current != head); 
+    //5)  обьединил старое условие прекращения цикла current != head с новым current != nullptr (скорее всего current != head здесь на случай если узел head это начало петли в списке, поэтому оставил данное условие)
+    
+    return nullptr; //6) убрал создание копии узла, и в случае если value не найдено возвращаю nullptr (мы окажемся здесь если список имеет петлю или если мы дошли до конца спика. В любом случае value нет в списке)
+}
+
+
+2. Вам дали задание добавить логи в функцию ReadValueFromFile в том случае, если какая-то из вызываемых внутри неё функций выбросит 
+исключение. Вы знаете, что все функции из utils:: могут выбрасывать только наследников std::exception.
+
+Заключить весь код в один блок try и выстроить цепочку перехвата исключений по принципу "от более специфичных к менее специфичным".
+
+int ReadValueFromFile(const char* path)
+{
+    chat msg[255] = "";
+    try 
+    {
+       char* buffer = new char[VALUE_SIZE];
+       HANDLE file = utils::Open(path);
+       if (file == INVALID_HANDLE_VALUE)
+       {
+        //ERROR_FILE_NOT_FOUND
+        throw (DWORD)2;
+       }
+    
+       utils::Read(file, buffer);
+    
+       int value = utils::Convert<int>(buffer);
+       utils::Close(file);
+       return value;
+   }
+   catch(DWORD err)
+   {
+       sprintf(msg, "%s %s %s", "File", path, "not found!")
+       std::cout << msg << '\n';
+       Dlog(msg);
+   }
+   catch(std:bad_alloc& ba)
+   {
+       sprintf(msg, "%s %d", An error occurred while allocating memory with size, VALUE_SIZE);
+       std::cout <<  msg << '\n';
+       Dlog(msg);
+   }
+   catch(std::exception& exc) //перехват исключений от процедур из utils. Предполагается, что при генерации исключения данные процедуры предоставляют корректное информативное сообщение так, чтобы можно было уникально идентифицировать причину.
+   {
+       sprintf(msg, "%s %s", An error occurred:", ba.what());
+       std::cout << msg << '\n';
+       Dlog(msg);
+   }
+}
