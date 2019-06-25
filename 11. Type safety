@@ -1,0 +1,254 @@
+11. Безопасность типов
+
+1. 
+При добавлении новых классов производных от IEmployee, необходимо будет переписывать функцию PrintEmployeeResponsibility и добавлять
+конструкции ветвления для вывода строки ответственности для добавленных классов. Расширение иерархии приведет к увеличению кода функции. 
+Так же, для преобразования применен reinterpret_cast, который является ненадежным и не переносимым преобразованием. В качестве 
+оператора преобразования можно использовать dynamic_cast<> как раз предназначенный для полиморфных типов, но, поскольку, классы 
+Intern, Middle и Senior являются классами их одной иерархии, то можно было бы определить чистую виртуальную функцию в классе IEmployee
+с названием GetResponsibility().
+
+class IEmployee
+{
+public:
+    ...
+    virtual std::string GetPosition() = 0;
+    virtual std::string GetResponsibility() const = 0
+    ...
+};
+
+Затем, каждый из дочерних классов должен переопределить GetResponsibility(). Таким образом, функция PrintEmployeeResponsibility
+может приобрести более компактное определение без необходимости выполнять кастование. Мы просто воспользуемся динамическим 
+полиморфизмом:
+
+std::string PrintEmployeeResponsibility(const IEmployee& employee)
+{
+    return employee.GetResponsibility();
+}
+
+2. В модуле 1 (статической библиотеке) реализована логика создания и API для работы с некими объектами типа Object:
+
+// Module 1
+struct ObjectInfo
+{
+    time_t created;
+    unsigned char count;
+    size_t id;
+};
+
+struct Object
+{
+    ObjectInfo info;
+    /* many fascinating fields */
+};
+
+class UsefulObject : public Object  //у Object нет виртуального деструктора.
+{
+    /* a lot of useful methods */
+};
+
+size_t GetObjectId(size_t objAddress)
+{
+    const size_t idAddress = objAddress + sizeof(time_t) + sizeof(unsigned char);
+    const size_t* idPointer = reinterpret_cast<size_t*>(idAddress);
+    return *idPointer;
+}
+
+time_t GetTimeCreated(Object* obj)
+{
+    const ObjectInfo* info = reinterpret_cast<const ObjectInfo*>(obj); //примение reinterpret_cast, результат работы которого зависит от реализации здесь вообще не трубется 
+    return info->created;
+}
+
+bool IsUsefulObjectExistsInMemory(void* memory)
+{
+    /* some incredible code */
+    return true;
+}
+
+Модуль 2 является исполняемым файлом с такой главной функцией:
+
+Object* CreateObject() { /* incredibly startling actions */ }
+void DoSomethingUseful(UsefulObject* obj) { /* magnificent code */ }
+
+int main()
+{
+    const Object* obj = CreateObject();
+    /* many fabulous features */
+
+    Object* objMutable = (Object*)obj;  //С-преобразование, отменяющее const, которое может привести к неопределенному поведению
+    void* objAddress = reinterpret_cast<void*>(objMutable); //Применение reinterpret_cast для преобразования к void* не обязательно
+    if (IsUsefulObjectExistsInMemory(objAddress))
+    {
+        const time_t created = GetTimeCreated(objMutable);
+        const size_t id = GetObjectId((size_t)objAddress); //преобразование от void* к size_t
+    
+        std::cout << "Doing something useful with object #" << id << " which was created at " << created << std::endl;
+        DoSomethingUseful(static_cast<UsefulObject*>(objMutable)); //кастование вниз по иерархии, при условии, что objMutable не указывает на обьект производного класса.
+                                                                   //к тому же, здесь применяется static_cast к указателю на динамический объект.
+    }
+}
+
+Какие проблемы могут возникнуть при выполнении данного кода? Измените код таким образом, чтобы исправить все обнаруженные проблемы.
+Сохраните при этом имена функций, функции с нераскрытой реализацией переписывать не нужно - при необходимости измените сигнатуру.
+
+Код во многих местах нарушает безопасность типов данных. Конкретные места помечены, в комментариях в коду выше. 
+Далее - исправленная версия.
+
+// Module 1
+struct ObjectInfo
+{
+    time_t created;
+    unsigned char count;
+    size_t id;
+};
+
+struct Object
+{
+    ObjectInfo info;
+    /* many fascinating fields */
+    /*Если от структуры выполняется публичное наследование, то необходимо обеспечить виртуальный деструктор*/
+};
+
+class UsefulObject : public Object
+{
+    /* a lot of useful methods */
+};
+
+size_t GetObjectId(size_t objAddress)
+{
+    return objAddress + sizeof(time_t) + sizeof(unsigned char);
+}
+
+time_t GetTimeCreated(Object* obj)
+{
+    return obj->info->created;
+}
+
+bool IsUsefulObjectExistsInMemory(void* memory)
+{
+    /* some incredible code */
+    return true;
+}
+
+Object* CreateObject() { /* incredibly startling actions */ }
+void DoSomethingUseful(UsefulObject* obj) { /* magnificent code */ }
+
+int main()
+{
+    const Object* obj = CreateObject();
+    /* many fabulous features */
+
+    Object* objMutable = static_cast<Object*>(obj); //по крайней мере безопаснее чем преобразование в стиле С, хоть по прежнему и нарушает правило 94.
+    
+    /*Приведение к void* убрано, т.к. указателю на void можно присвоить указатель на любой другой тип*/
+    
+    if (IsUsefulObjectExistsInMemory(objMutable))
+    {
+        const time_t created = GetTimeCreated(objMutable);
+        const size_t id = GetObjectId(objMutable->id);
+    
+        std::cout << "Doing something useful with object #" << id << " which was created at " << created << std::endl;
+        DoSomethingUseful(dynamic_cast<UsefulObject*>(objMutable)); //
+    }
+}
+
+3. По каким причинам не рекомендуется применять memcpy или memcmp ИМЕННО к не POD типам?
+
+memcpy нельзя использовать для копирования обьектов С++, а memcmp нельзя использовать для сравнения обьектов С++.
+Причины:
+Объекты С++ предназначены для сокрытия данных. Объекты скрывают данные и предоставляют точные абстракции для копирования этих 
+данных посредством конструкторов и операторов присваивания. Применение к ним memcpy и memcmp является нарушением принципа сокрытия
+информации, которое может привести к утечке памяти, аварийному завершению программы, неопределенному поведению, зависимо от того
+к чему применять.  Неверное применение memcpy может влиять на такие фундаментальные свойства, как тип и сущность объекта. 
+Компиляторы часто добавляют к полиморфным объектам скрытые данные (так называемый указатель на виртуальную таблицу), которые 
+определяют сущность объекта во время выполнения программы. В случае множественного наследования в объекте содержится несколько
+таких таблиц, с различными смещениями внутри объекта, и большинство реализаций добавляют дополнительные внутренние указатели при
+виртуальном наследовании. При обычном использовании компилятор принимает меры для корректного управления всеми скрытыми полями;
+применение memcpy способно внести в этот механизм только хаос. Аналогично, функция memcmp — неподходящий инструмент для сравнения
+чего-то более сложного, чем просто наборы битов. Иногда эта функция делает слишком мало (например, сравнение строк в стиле С — не то же,
+что и сравнение указателей, при помощи которых эти строки реализованы). А иногда, как это ни парадоксально, memcmp делает слишком много
+(например, memcmp может совершенно напрасно сравнивать байты, которые не являются частью состояния объекта, 
+такие как заполнители, вставленные компилятором для выравнивания). В обоих случаях результат сравнения оказывается неверным.
+
+Пример:
+
+class SomeClass {
+    public:
+    SomeClass(size_t n)
+    {
+        this->n = n;
+        data = new int[n];
+    }
+
+    // copy constructor:
+    SomeClass(const SomeClass& rObj)
+    {
+        n = rObj.n;
+        data = new int[n];
+        memcpy(data, rObj.data, n*sizeof(int));
+    }
+    SomeClass& operator=(const SomeClass& rObj)
+    {
+        n = rObj.n;
+        data = new int[n];
+        memcpy(data, rObj.data, n*sizeof(int));
+        return *this;
+    }
+
+    ~SomeClass()
+    {
+        delete[] data;
+    }
+    
+    private:
+        int* data;
+        size_t n;
+};
+
+SomeClass *objF = new SomeClass(10);
+SOmeClass *objS = new SomeClass(20);
+
+memcpy(objF, objS, sizeof(SomeClass));
+
+При применение memcpy к обьектам типа SomeClass будет два экземпляра, у которых data указывает на одну и ту же область памяти. 
+По отношению к objS будет утечка памяти. При этом меняя data в одном экземпляре, она будут менятся и в другом.
+При delete objF и delete objS будет выполнена попытка освобождения одного и того же data 2 раза.
+
+4. Опишите потенциальные проблемы данного кода:
+
+std::vector<int> vec;
+... //fill vector
+auto it = vec.begin()
+for (; it != vec.end(); ++it)
+{
+    if (*it == 5)
+    {
+        break;
+    }
+}
+*it = 10;
+
+В строке 3 нет точки с запятой.
+Если в процессе иттерации по вектору будет обнаружено значение 5, то it будет в пределах диапазона от begin до end()-1, и *it = 10 
+не вызовет проблем. Если 5 не будет найдено в векторе или если вектор пуст, то it будет равно end() указывать на позицию за последним
+элементом векторе. Тогда попытка разыменования вызовет runtime error.
+
+5. Есть произвольный класс Base и унаследованный от него класс Derived. Создайте массив из пяти классов Derived. Преобразуйте его 
+в массив из пяти классов Base.
+
+class Base
+{
+}
+
+class Derived : public Base
+{}
+
+Массивы нельзя рассматривать полиморфно, поэтому вместо каких-либо способов конвертирования лучше использовать контейнер обьектов и
+выполнить инициализацию диапазоном при создании массива.
+
+vector<Derived> derivedArray(5);
+vector<Base> baseArray(derivedArray.begin(), derivedArray.end());
+
+Либо, необходимо создать некую "фабрику" полиморфных обьектов, создав контейнер указателей на базовый класс и помещать в него
+производные обьекты, созданные через оператор new. 
