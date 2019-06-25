@@ -50,7 +50,7 @@ class UsefulObject : public Object  //у Object нет виртуального 
 size_t GetObjectId(size_t objAddress)
 {
     const size_t idAddress = objAddress + sizeof(time_t) + sizeof(unsigned char);
-    const size_t* idPointer = reinterpret_cast<size_t*>(idAddress);
+    const size_t* idPointer = reinterpret_cast<size_t*>(idAddress); //здесь смысл таких манипуляций в принципе непонятен
     return *idPointer;
 }
 
@@ -85,14 +85,14 @@ int main()
     
         std::cout << "Doing something useful with object #" << id << " which was created at " << created << std::endl;
         DoSomethingUseful(static_cast<UsefulObject*>(objMutable)); //кастование вниз по иерархии, при условии, что objMutable не указывает на обьект производного класса.
-                                                                   //к тому же, здесь применяется static_cast к указателю на динамический объект.
+                                                                   //к тому же, здесь применяется static_cast к указателю на динамический объект (нарушено правило 93).
     }
 }
 
 Какие проблемы могут возникнуть при выполнении данного кода? Измените код таким образом, чтобы исправить все обнаруженные проблемы.
 Сохраните при этом имена функций, функции с нераскрытой реализацией переписывать не нужно - при необходимости измените сигнатуру.
 
-Код во многих местах нарушает безопасность типов данных. Конкретные места помечены, в комментариях в коду выше. 
+Ответ: Код во многих местах нарушает безопасность типов данных. Конкретные места помечены, в комментариях в коду выше. 
 Далее - исправленная версия.
 
 // Module 1
@@ -149,7 +149,7 @@ int main()
         const size_t id = GetObjectId(objMutable->id);
     
         std::cout << "Doing something useful with object #" << id << " which was created at " << created << std::endl;
-        DoSomethingUseful(dynamic_cast<UsefulObject*>(objMutable)); //
+        DoSomethingUseful(dynamic_cast<UsefulObject*>(objMutable)); //в функции должна быть проверка на входной на nullptr, т.к. в данном случае кастование должно дать nullptr
     }
 }
 
