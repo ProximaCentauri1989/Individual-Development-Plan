@@ -137,17 +137,8 @@ public:
 
         /*Сохранить конфигурацию волительского сидения под номером*/
         void SaveDriverSeat(Mode mode) {
-            switch (mode){
-            case Mode::first:
-                 seats[DRIVER_SEAT_INDEX].SaveInMemoryByNumber(0);  
-                 break;
-            case Mode::second:
-                  seats[DRIVER_SEAT_INDEX].SaveInMemoryByNumber(1); 
-                 break;
-            case Mode::third:
-                  seats[DRIVER_SEAT_INDEX].SaveInMemoryByNumber(2); 
-                 break;
-            }
+	
+	    seats[DRIVER_SEAT_INDEX].SaveInMemoryByNumber(mode);
 
             /*Show actions*/
             sprintf(msg, "%s: %d", "The current configuration has been saved by number", static_cast<size_t>(mode));
@@ -223,7 +214,10 @@ public:
          return this->angle;
    }
    
-   void SaveInMemoryByNumber(size_t index) {
+   void SaveInMemoryByNumber(Mode mode) {
+   
+        size_t index = static_cast<size_t>(mode);
+	
         SeatMem[index].param0 = height;
         SeatMem[index].param1 = distanceToSteeringWheel;
         SeatMem[index].param2 = angle;
@@ -231,23 +225,12 @@ public:
 
    /*Подстройка сидения используя сохраненные конфигурации*/
     void PressModeButton(Mode mode) {
-        switch (mode){
-            case Mode::first:
-                 height = sm[0].height;
-                 distanceToSteeringWheel = sm[0].distanceToSteeringWheel;
-                 angle = sm[0].angle;
-                 break;
-            case Mode::second:
-                 height = sm[1].height;
-                 distanceToSteeringWheel = sm[1].distanceToSteeringWheel;
-                 angle = sm[1].angle;
-                 break;
-            case Mode::third:
-                 height = sm[2].height;
-                 distanceToSteeringWheel = sm[2].distanceToSteeringWheel;
-                 angle = sm[2].angle;
-                 break;
-        }
+    	
+	size_t index = static_cast<size_t>(mode);
+	
+	height = sm[index].height;
+        distanceToSteeringWheel = sm[index].distanceToSteeringWheel;
+        angle = sm[index].angle;
     }
     
 private:
@@ -272,9 +255,9 @@ public:
     ~Driver() = default
     
     /*Водитель вручную задает положение сидения*/
-    ChangeDriverSeatManual(Car& c, size_t, size_t, double){
-        c.ChangeDriverSeat(size_t, size_t, double);
-        c.SaveDriverSeatState(Mode mode);
+    ChangeDriverSeatManual(Car& c, size_t hght, size_t dist, double ang, Mode m){
+        c.ChangeDriverSeat(hght, dist, ang);
+        c.SaveDriverSeat(m);
     }
 
     /*Водитель меняет состояние сидения через кнопку на сидении*/
