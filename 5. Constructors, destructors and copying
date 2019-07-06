@@ -103,7 +103,7 @@ public:
 	SomeClass& operator=(SomeClass&& rObj);
 	~SomeClass();
 private:
-	void Alloc(const SomeClass& rObj);
+	void AllocNew();
 	void Dealloc();
 
 	Test *pTest;
