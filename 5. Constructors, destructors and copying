@@ -112,18 +112,7 @@ private:
 //Header.cpp
 SomeClass::SomeClass(const SomeClass &rObj) : pTest(nullptr)
 {
-	if (this != &rObj && rObj.pTest) //if rObj isn't the same as *this and pTest in rObj is correct
-	{
-		try
-		{
-			this->Alloc(rObj);
-			this->pTest->data = rObj.pTest->data;
-		}
-		catch (const std::bad_alloc& ba)
-		{
-			std::cout << "An error occurred while creating an object!\n";
-		}
-	}
+	*this = rObj; //используется оператор присваивания
 }
 
 //Move copy constructor
@@ -139,7 +128,7 @@ SomeClass& SomeClass::operator=(const SomeClass& rObj)
 		Test* old = this->pTest; //save old pointer
 		try
 		{
-			this->Alloc(rObj); //allocate memory for new pointer (possible exception)
+			this->AllocNew(); //allocate memory for new pointer (possible exception)
 			this->pTest->data = rObj.pTest->data;
 			delete old; //if Alloc was okay
 		}
@@ -170,11 +159,11 @@ SomeClass::~SomeClass()
 }
 
 //Allocate memory
-void SomeClass::Alloc(const SomeClass& rObj)
+void SomeClass::AllocNew()
 {
 	try
 	{
-		pTest = new Test;
+		this->pTest = new Test;
 	}
 	catch (const std::bad_alloc& ba)
 	{
