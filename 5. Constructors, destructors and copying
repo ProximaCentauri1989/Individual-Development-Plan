@@ -103,7 +103,6 @@ public:
 	SomeClass& operator=(SomeClass&& rObj);
 	~SomeClass();
 private:
-	void AllocNew();
 	void Dealloc();
 
 	Test *pTest;
@@ -126,7 +125,7 @@ SomeClass& SomeClass::operator=(const SomeClass& rObj)
 	if (this != &rObj && rObj.pTest)
 	{
 		Test* old = this->pTest; //save old pointer
-		this->AllocNew(); //allocate memory for new pointer (possible exception)
+		this->pTest = new Test; //allocate memory for new pointer (possible exception)
 		
 		try
 		{
@@ -135,7 +134,7 @@ SomeClass& SomeClass::operator=(const SomeClass& rObj)
 		}
 		catch (const std::bad_alloc& ba)
 		{
-			delete this->pTest;
+			this->Dealloc();
 			this->pTest = old; //if Alloc wasn't okay
 		}
 	}
@@ -160,19 +159,6 @@ SomeClass::~SomeClass()
 	this->Dealloc();
 }
 
-//Allocate memory
-void SomeClass::AllocNew()
-{
-	try
-	{
-		this->pTest = new Test;
-	}
-	catch (const std::bad_alloc& ba)
-	{
-		throw;
-	}
-}
-
 //Free memory
 void SomeClass::Dealloc()
 {
@@ -192,7 +178,7 @@ void SomeClass::Dealloc()
 
 Безопасный в отношении ошибок код возможен если каждая функция обспечивает как можно более строгую гарантию безсбойности.
 Мнимальная гарантия безопасности исключений (базовая) гарантирует не только то, что будут отсутствовать утечки ресурса памяти,
-но и то, что состояние программы останется согласованным. Если принять тот факт, что при возникновении оишбки при копировании объект
+но и то, что состояние программы останется согласованным. Если принять тот факт, что при возникновении ошибки при копировании объект
 типа SomeClass будет иметь pTest со значением nullptr за согласованное состояние, то мы обеспечиваем хотя бы базовую гарантию (у нас
 нет утечек и pTest имеет значение предусмотренное в случае возникновения ошибки при копировании).
 
